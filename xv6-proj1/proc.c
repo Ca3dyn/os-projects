@@ -542,9 +542,13 @@ setnice(int pid, int nice)
     struct proc *p;
     acquire(&ptable.lock);
 
-    /* ******************** */
-    /* * WRITE YOUR CODE    */
-    /* ******************** */
+    for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+      if (p->pid == pid && p->state != UNUSED)  {
+        p->nice = nice;
+        release(&ptable.lock);
+        return 0;
+      }
+    }
 
     release(&ptable.lock);
     return -1;
