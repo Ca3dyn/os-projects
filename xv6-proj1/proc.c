@@ -579,10 +579,37 @@ ps(void)
     acquire(&ptable.lock);
     cprintf("name\tpid\tppid\tmem\tprio\tstate\n");
 
-    /* ******************** */
-    /* * WRITE YOUR CODE    */
-    /* ******************** */
+    for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+      if (p->state != UNUSED) {
+        cprintf("%s\t%d\t%d\t%d\t%d\t%d\n", 
+          p->name,
+          p->pid,
+          p->parent ? p->parent->pid : -1,
+          p->sz,
+          p->nice,
+          p->state
+        );
+      }
+    }
 
     release(&ptable.lock);
     return;
+}
+
+int sys_setnice(void) {
+  int pid, nice;
+  if(argint(0, &pid) < 0) return -1;
+  if(argint(1, &nice) < 0) return -1;
+  return setnice(pid, nice);
+}
+
+int sys_getnice(void) {
+  int pid;
+  if(argint(0, &pid) < 0) return -1;
+  return getnice(pid);
+}
+
+int sys_ps(void) {
+  ps();
+  return 0;
 }
