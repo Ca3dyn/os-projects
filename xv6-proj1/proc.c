@@ -125,6 +125,8 @@ userinit(void)
 
   p = allocproc();
   
+  p->nice = 5;
+
   initproc = p;
   if((p->pgdir = setupkvm()) == 0)
     panic("userinit: out of memory?");
@@ -209,6 +211,8 @@ fork(void)
   np->cwd = idup(curproc->cwd);
 
   safestrcpy(np->name, curproc->name, sizeof(curproc->name));
+
+  np->nice = curproc->nice;
 
   pid = np->pid;
 
