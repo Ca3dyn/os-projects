@@ -12,6 +12,8 @@ struct {
   struct proc proc[NPROC];
 } ptable;
 
+struct proc *readyQueueHead = 0;
+
 static struct proc *initproc;
 
 int nextpid = 1;
@@ -88,6 +90,7 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  p->next = NULL;
 
   release(&ptable.lock);
 
@@ -201,6 +204,14 @@ fork(void)
   np->sz = curproc->sz;
   np->parent = curproc;
   *np->tf = *curproc->tf;
+
+  // Assign priority to child process based on parent's priority value.
+  if(np->parent->priority >= 15){
+    np->priority = (np->parent->priority) / 2;
+  }
+  else if(np->parent->priority < 15){
+    np->priority = (np->parent->priority) + 1;
+  }
 
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
@@ -335,23 +346,62 @@ scheduler(void)
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
+      if(p->state != RUNNABLE){
         continue;
+      }
+      // Process is RUNNABLE, sort into ready queue.
+      if(!readyQueueHead || p->priority > readyQueueHead->priority){
+        p->next = readyQueueHead;
+        readyQueueHead = p;
+      }
+      else{
+        struct proc *prevProc = readyQueueHead;
+        struct proc *currentProc = readyQueueHead->next;
 
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
-
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
-
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
+        while(true){
+          if(currentProc == NULL){
+            p->next = currentProc;
+            prevProc->next = p;
+            break;
+          }
+          else if(p->priority > currentProc->priority){
+            p->next = currentProc;
+            prevProc->next = p;
+            break;
+          }
+          else if(p->priority == currentProc->priority){
+            if(p->pid > currentProc->pid){
+              p->next = currentProc;
+              prevProc->next = p;
+            }
+            else {
+              p->next = currentProc->next;
+              currentProc->next = p;
+            }
+            break;
+          }
+          prevProc = currentProc;
+          currentProc = currentProc->next;
+        }
+        // SUCCESSFULLY IMPLEMENTED QUEUEING PROCESSES
+        // NEXT FIGURE OUT HOW TO RUN THEN DEQUEUE THEM
+      }
     }
+
+    // Switch to chosen process.  It is the process's job
+    // to release ptable.lock and then reacquire it
+    // before jumping back to us.
+    c->proc = p;
+    switchuvm(p);
+    p->state = RUNNING;
+
+    swtch(&(c->scheduler), p->context);
+    switchkvm();
+
+    // Process is done running for now.
+    // It should have changed its p->state before coming back.
+    c->proc = 0;
+
     release(&ptable.lock);
 
   }
