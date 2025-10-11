@@ -416,7 +416,6 @@ struct proc* removeProcess(int pid){
 void
 scheduler(void)
 {
-  struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
   
@@ -631,9 +630,7 @@ setnice(int pid, int nice)
   if( nice < 0 || nice > 30)
     return -1;
 
-  struct proc *p;
   acquire(&ptable.lock);
-
   struct proc *p = removeProcess(pid);
   if(p){
     p->priority = nice;
