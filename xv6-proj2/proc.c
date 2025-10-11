@@ -90,7 +90,7 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
-  p->next = NULL;
+  p->next = 0;
 
   release(&ptable.lock);
 
@@ -116,6 +116,86 @@ found:
   p->context->eip = (uint)forkret;
 
   return p;
+}
+
+// Adds a RUNNABLE process to it's priority position in the readyQueue
+void enqueueProcess(struct proc *p){
+  if(!readyQueueHead || p->priority > readyQueueHead->priority){
+    p->next = readyQueueHead;
+    readyQueueHead = p;
+  }
+  else{
+    struct proc *prevProc = readyQueueHead;
+    struct proc *currentProc = readyQueueHead->next;
+
+    for(;;){
+      if(currentProc == 0){
+        p->next = currentProc;
+        prevProc->next = p;
+        break;
+      }
+      else if(p->priority > currentProc->priority){
+        p->next = currentProc;
+        prevProc->next = p;
+        break;
+      }
+      else if(p->priority == currentProc->priority){
+        if(p->pid > currentProc->pid){
+          p->next = currentProc;
+          prevProc->next = p;
+        }
+        else {
+          prevProc->next = currentProc;
+          p->next = currentProc->next;
+          currentProc->next = p;
+        }
+        break;
+      }
+      prevProc = currentProc;
+      currentProc = currentProc->next;
+    }
+  }
+}
+
+// Removes and returns the first process in the readyQueue
+struct proc* dequeueProcess(void){
+  if(!readyQueueHead){
+    return 0;
+  }
+  else{
+    struct proc *topProcess = readyQueueHead;
+    readyQueueHead = readyQueueHead->next;
+    topProcess->next = 0;
+    return topProcess;
+  }
+}
+
+// Removes the selected process based on PID (for setnice())
+struct proc* removeProcess(int pid){
+  if(!readyQueueHead){
+    return 0;
+  }
+  else{
+    struct proc *prevProc = readyQueueHead;
+    struct proc *currentProc = readyQueueHead->next;
+
+    if (prevProc->pid == pid){
+      readyQueueHead = prevProc->next;
+      prevProc->next = 0;
+      return prevProc;
+    }
+
+    while(currentProc != 0){
+      if(currentProc->pid == pid){
+        prevProc->next = currentProc->next;
+        currentProc->next = 0;
+        return currentProc;
+      }
+      prevProc = currentProc;
+      currentProc = currentProc->next;
+    }
+    return 0;
+  }
 }
 
 //PAGEBREAK: 32
@@ -326,85 +406,6 @@ wait(void)
   }
 }
 
-// Adds a RUNNABLE process to it's priority position in the readyQueue
-void enqueueProcess(struct proc *p){
-  if(!readyQueueHead || p->priority > readyQueueHead->priority){
-    p->next = readyQueueHead;
-    readyQueueHead = p;
-  }
-  else{
-    struct proc *prevProc = readyQueueHead;
-    struct proc *currentProc = readyQueueHead->next;
-
-    while(true){
-      if(currentProc == NULL){
-        p->next = currentProc;
-        prevProc->next = p;
-        break;
-      }
-      else if(p->priority > currentProc->priority){
-        p->next = currentProc;
-        prevProc->next = p;
-        break;
-      }
-      else if(p->priority == currentProc->priority){
-        if(p->pid > currentProc->pid){
-          p->next = currentProc;
-          prevProc->next = p;
-        }
-        else {
-          p->next = currentProc->next;
-          currentProc->next = p;
-        }
-        break;
-      }
-      prevProc = currentProc;
-      currentProc = currentProc->next;
-    }
-  }
-}
-
-// Removes and returns the first process in the readyQueue
-struct proc* dequeueProcess(void){
-  if(!readyQueueHead){
-    return 0;
-  }
-  else{
-    struct proc *topProcess = readyQueueHead;
-    readyQueueHead = readyQueueHead->next;
-    topProcess->next = 0;
-    return topProcess;
-  }
-}
-
-// Removes the selected process based on PID (for setnice())
-struct proc* removeProcess(int pid){
-  if(!readyQueueHead){
-    return 0;
-  }
-  else{
-    struct proc *prevProc = readyQueueHead;
-    struct proc *currentProc = readyQueueHead->next;
-
-    if (prevProc->pid == pid){
-      readyQueueHead = prevProc->next;
-      prevProc->next = NULL;
-      return prevProc;
-    }
-
-    while(currentProc != NULL){
-      if(currentProc->pid == pid){
-        prevProc->next = currentProc->next;
-        currentProc->next = NULL;
-        return currentProc;
-      }
-      prevProc = currentProc;
-      currentProc = currentProc->next;
-    }
-    return 0;
-  }
-}
-
 //PAGEBREAK: 42
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
@@ -472,8 +473,9 @@ void
 yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
-  myproc()->state = RUNNABLE;
-  enqueueProcess(myproc());
+  struct proc *p = myproc();
+  p->state = RUNNABLE;
+  enqueueProcess(p);
   sched();
   release(&ptable.lock);
 }
