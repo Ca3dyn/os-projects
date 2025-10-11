@@ -324,6 +324,57 @@ wait(void)
   }
 }
 
+// Adds a RUNNABLE process to it's priority position in the readyQueue
+void enqueueReady(struct proc *p){
+  if(!readyQueueHead || p->priority > readyQueueHead->priority){
+    p->next = readyQueueHead;
+    readyQueueHead = p;
+  }
+  else{
+    struct proc *prevProc = readyQueueHead;
+    struct proc *currentProc = readyQueueHead->next;
+
+    while(true){
+      if(currentProc == NULL){
+        p->next = currentProc;
+        prevProc->next = p;
+        break;
+      }
+      else if(p->priority > currentProc->priority){
+        p->next = currentProc;
+        prevProc->next = p;
+        break;
+      }
+      else if(p->priority == currentProc->priority){
+        if(p->pid > currentProc->pid){
+          p->next = currentProc;
+          prevProc->next = p;
+        }
+        else {
+          p->next = currentProc->next;
+          currentProc->next = p;
+        }
+        break;
+      }
+      prevProc = currentProc;
+      currentProc = currentProc->next;
+    }
+  }
+}
+
+// Removes and returns the first process in the readyQueue
+struct proc* dequeueReady(void){
+  if(!readyQueueHead){
+    return 0;
+  }
+  else{
+    struct proc *topProcess = readyQueueHead;
+    readyQueueHead = readyQueueHead->next;
+    topProcess->next = 0;
+    return topProcess;
+  }
+}
+
 //PAGEBREAK: 42
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
@@ -348,43 +399,6 @@ scheduler(void)
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE){
         continue;
-      }
-      // Process is RUNNABLE, sort into ready queue.
-      if(!readyQueueHead || p->priority > readyQueueHead->priority){
-        p->next = readyQueueHead;
-        readyQueueHead = p;
-      }
-      else{
-        struct proc *prevProc = readyQueueHead;
-        struct proc *currentProc = readyQueueHead->next;
-
-        while(true){
-          if(currentProc == NULL){
-            p->next = currentProc;
-            prevProc->next = p;
-            break;
-          }
-          else if(p->priority > currentProc->priority){
-            p->next = currentProc;
-            prevProc->next = p;
-            break;
-          }
-          else if(p->priority == currentProc->priority){
-            if(p->pid > currentProc->pid){
-              p->next = currentProc;
-              prevProc->next = p;
-            }
-            else {
-              p->next = currentProc->next;
-              currentProc->next = p;
-            }
-            break;
-          }
-          prevProc = currentProc;
-          currentProc = currentProc->next;
-        }
-        // SUCCESSFULLY IMPLEMENTED QUEUEING PROCESSES
-        // NEXT FIGURE OUT HOW TO RUN THEN DEQUEUE THEM
       }
     }
 
