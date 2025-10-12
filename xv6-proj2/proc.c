@@ -427,7 +427,6 @@ scheduler(void)
     // Dequeues top process and gives it to the CPU to run.
     acquire(&ptable.lock);
     struct proc *nextProc = dequeueProcess();
-    release(&ptable.lock);
 
     if(nextProc){
       c->proc = nextProc;
@@ -439,6 +438,7 @@ scheduler(void)
       // It should have changed its next->state before coming back.
       c->proc = 0;
     }
+    release(&ptable.lock);
   }
 }
 
