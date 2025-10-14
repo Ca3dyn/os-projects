@@ -120,41 +120,93 @@ found:
 
 // Adds a RUNNABLE process to it's priority position in the readyQueue
 void enqueueProcess(struct proc *p){
-  if(!readyQueueHead || p->priority > readyQueueHead->priority){
-    p->next = readyQueueHead;
-    readyQueueHead = p;
-  }
-  else{
-    struct proc *prevProc = readyQueueHead;
-    struct proc *currentProc = readyQueueHead->next;
+  p->next = 0;
 
-    for(;;){
-      if(currentProc == 0){
-        p->next = currentProc;
-        prevProc->next = p;
-        break;
-      }
-      else if(p->priority > currentProc->priority){
-        p->next = currentProc;
-        prevProc->next = p;
-        break;
-      }
-      else if(p->priority == currentProc->priority){
-        if(p->pid > currentProc->pid){
-          p->next = currentProc;
-          prevProc->next = p;
-        }
-        else {
-          prevProc->next = currentProc;
-          p->next = currentProc->next;
-          currentProc->next = p;
-        }
-        break;
-      }
-      prevProc = currentProc;
-      currentProc = currentProc->next;
-    }
+  if(!readyQueueHead){
+    readyQueueHead = p;
+    return;
   }
+
+  struct proc *prevProc = 0;
+  struct proc *currProc = readyQueueHead;
+
+  while(currProc){
+    // Priority is greater than the current process
+    if(p->priority > currProc->priority){
+      p->next = currProc;
+      prevProc->next = p;
+      if(currProc == readyQueueHead){
+        readyQueueHead = p;
+      }
+      break;
+    }
+    // Priorities is equal to the current process
+    else if(p->priority == currProc->priority){
+      if(p->pid > currProc->pid){
+        p->next = currProc;
+        prevProc->next = p;
+        if(currProc == readyQueueHead){
+          readyQueueHead = p;
+        }
+      }
+      else {
+        p->next = currProc->next;
+        currProc->next = p;
+      }
+      break;
+    }
+    prevProc = currProc;
+    currProc = currProc->next;
+  }
+
+  prevProc->next = p;
+
+  // If theres no queue head or priority is greater than the current head or priority is equal BUT pid is greater.
+//   if(!readyQueueHead || p->priority > readyQueueHead->priority || (p->priority == readyQueueHead->priority && p->pid > readyQueueHead->pid)){
+//     p->next = readyQueueHead;
+//     readyQueueHead = p;
+//   }
+//   else if (p->priority == readyQueueHead->priority){
+//     if(p->pid > readyQueueHead->pid){
+//       p->next = readyQueueHead;
+//       readyQueueHead = p;
+//     }
+//     else {
+//       p->next = readyQueueHead->next;
+//       readyQueueHead->next = p;
+//     }
+//   }
+//   else{
+//     struct proc *prevProc = readyQueueHead;
+//     struct proc *currentProc = readyQueueHead->next;
+
+//     for(;;){
+//       if(currentProc == 0){
+//         p->next = currentProc;
+//         prevProc->next = p;
+//         break;
+//       }
+//       else if(p->priority > currentProc->priority){
+//         p->next = currentProc;
+//         prevProc->next = p;
+//         break;
+//       }
+//       else if(p->priority == currentProc->priority){
+//         if(p->pid > currentProc->pid){
+//           p->next = currentProc;
+//           prevProc->next = p;
+//         }
+//         else {
+//           prevProc->next = currentProc;
+//           p->next = currentProc->next;
+//           currentProc->next = p;
+//         }
+//         break;
+//       }
+//       prevProc = currentProc;
+//       currentProc = currentProc->next;
+//     }
+//   }
 }
 
 
@@ -627,6 +679,7 @@ procdump(void)
   }
 }
 
+// The lower the nice value the higher the priority
 int
 setnice(int pid, int nice)
 {
