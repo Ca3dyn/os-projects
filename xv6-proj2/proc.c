@@ -131,82 +131,31 @@ void enqueueProcess(struct proc *p){
   struct proc *currProc = readyQueueHead;
 
   while(currProc){
-    // Priority is greater than the current process
-    if(p->priority > currProc->priority){
+    if(p->priority < currProc->priority){
+      prevProc = currProc;
+      currProc = currProc->next;
+      continue;
+    }
+    // Priority is greater than or equal to the current process (and pid is higher)
+    else if(p->priority > currProc->priority || (p->priority == currProc->priority && p->pid > currProc->pid)){
       p->next = currProc;
-      prevProc->next = p;
+      if(prevProc){
+        prevProc->next = p;
+      }
       if(currProc == readyQueueHead){
         readyQueueHead = p;
       }
-      break;
+      return;
     }
-    // Priorities is equal to the current process
+    // Priorities is equal to the current process and pid is lower
     else if(p->priority == currProc->priority){
-      if(p->pid > currProc->pid){
-        p->next = currProc;
-        prevProc->next = p;
-        if(currProc == readyQueueHead){
-          readyQueueHead = p;
-        }
-      }
-      else {
-        p->next = currProc->next;
-        currProc->next = p;
-      }
-      break;
+      p->next = currProc->next;
+      currProc->next = p;
+      return;
     }
-    prevProc = currProc;
-    currProc = currProc->next;
   }
-
+  // this runs if the end of the queue is reached with no other changes before this
   prevProc->next = p;
-
-  // If theres no queue head or priority is greater than the current head or priority is equal BUT pid is greater.
-//   if(!readyQueueHead || p->priority > readyQueueHead->priority || (p->priority == readyQueueHead->priority && p->pid > readyQueueHead->pid)){
-//     p->next = readyQueueHead;
-//     readyQueueHead = p;
-//   }
-//   else if (p->priority == readyQueueHead->priority){
-//     if(p->pid > readyQueueHead->pid){
-//       p->next = readyQueueHead;
-//       readyQueueHead = p;
-//     }
-//     else {
-//       p->next = readyQueueHead->next;
-//       readyQueueHead->next = p;
-//     }
-//   }
-//   else{
-//     struct proc *prevProc = readyQueueHead;
-//     struct proc *currentProc = readyQueueHead->next;
-
-//     for(;;){
-//       if(currentProc == 0){
-//         p->next = currentProc;
-//         prevProc->next = p;
-//         break;
-//       }
-//       else if(p->priority > currentProc->priority){
-//         p->next = currentProc;
-//         prevProc->next = p;
-//         break;
-//       }
-//       else if(p->priority == currentProc->priority){
-//         if(p->pid > currentProc->pid){
-//           p->next = currentProc;
-//           prevProc->next = p;
-//         }
-//         else {
-//           prevProc->next = currentProc;
-//           p->next = currentProc->next;
-//           currentProc->next = p;
-//         }
-//         break;
-//       }
-//       prevProc = currentProc;
-//       currentProc = currentProc->next;
-//     }
-//   }
 }
 
 
@@ -229,24 +178,20 @@ struct proc* removeProcess(int pid){
     return 0;
   }
   else{
-    struct proc *prevProc = readyQueueHead;
-    struct proc *currentProc = readyQueueHead->next;
+    struct proc *prevProc = 0;
+    struct proc *currProc = readyQueueHead;
 
-    if (prevProc->pid == pid){
-      readyQueueHead = prevProc->next;
-      prevProc->next = 0;
-      return prevProc;
-    }
-
-    while(currentProc != 0){
-      if(currentProc->pid == pid){
-        prevProc->next = currentProc->next;
-        currentProc->next = 0;
-        return currentProc;
+    while(currProc){
+      if(currProc->pid == pid){
+        if(prevProc != 0){
+          prevProc->next = currProc->next;
+        }
+        currProc->next = 0;
       }
-      prevProc = currentProc;
-      currentProc = currentProc->next;
+      prevProc = currProc;
+      currProc = currProc->next;
     }
+
     return 0;
   }
 }
@@ -698,3 +643,5 @@ setnice(int pid, int nice)
   release(&ptable.lock);
   return -1;
 }
+
+// IT DOESNT CONSISTENTLY OUTPUT ANYTHING SO ITS ALL BROKEN
