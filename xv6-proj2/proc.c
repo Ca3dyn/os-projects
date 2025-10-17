@@ -131,31 +131,31 @@ void enqueueProcess(struct proc *p){
   struct proc *currProc = readyQueueHead;
 
   while(currProc){
-    if(p->priority < currProc->priority){
-      prevProc = currProc;
-      currProc = currProc->next;
-      continue;
-    }
     // Priority is greater than or equal to the current process (and pid is higher)
-    else if(p->priority > currProc->priority || (p->priority == currProc->priority && p->pid > currProc->pid)){
-      p->next = currProc;
-      if(prevProc){
-        prevProc->next = p;
-      }
-      if(currProc == readyQueueHead){
-        readyQueueHead = p;
-      }
-      return;
+    if(p->priority < currProc->priority ||
+      (p->priority == currProc->priority && p->pid > currProc->pid)){
+        p->next = currProc;
+        if(prevProc){
+          prevProc->next = p;
+        } else {
+          readyQueueHead = p;
+        }
+        return;
     }
     // Priorities is equal to the current process and pid is lower
-    else if(p->priority == currProc->priority){
+    else if(p->priority == currProc->priority && p->pid < currProc->pid){
       p->next = currProc->next;
       currProc->next = p;
       return;
     }
+    // Move onto next process, no placements found.
+    prevProc = currProc;
+    currProc = currProc->next;
   }
   // this runs if the end of the queue is reached with no other changes before this
   prevProc->next = p;
+  p->next = 0;
+  return;
 }
 
 
@@ -177,23 +177,23 @@ struct proc* removeProcess(int pid){
   if(!readyQueueHead){
     return 0;
   }
-  else{
-    struct proc *prevProc = 0;
-    struct proc *currProc = readyQueueHead;
+  struct proc *prevProc = 0;
+  struct proc *currProc = readyQueueHead;
 
-    while(currProc){
-      if(currProc->pid == pid){
-        if(prevProc != 0){
-          prevProc->next = currProc->next;
-        }
-        currProc->next = 0;
+  while(currProc){
+    if(currProc->pid == pid){
+      if(prevProc != 0){
+        prevProc->next = currProc->next;
+      } else {
+        readyQueueHead = currProc->next;
       }
-      prevProc = currProc;
-      currProc = currProc->next;
+      currProc->next = 0;
+      return currProc;
     }
-
-    return 0;
+    prevProc = currProc;
+    currProc = currProc->next;
   }
+  return 0;
 }
 
 //PAGEBREAK: 32
@@ -628,10 +628,22 @@ procdump(void)
 int
 setnice(int pid, int nice)
 {
-  if( nice < 0 || nice > 30)
+  if( nice < 0 || nice > 30){
     return -1;
+  }
 
   acquire(&ptable.lock);
+
+  // Check if the desired process is being run on the CPU
+  struct proc *currProc = myproc();
+  if(currProc && currProc->pid == pid){
+    currProc->priority = nice;
+    release(&ptable.lock);
+    yield();
+    return 0;
+  }
+
+  // This runs if the process is RUNNABLE but not RUNNING
   struct proc *p = removeProcess(pid);
   if(p){
     p->priority = nice;
@@ -643,5 +655,3 @@ setnice(int pid, int nice)
   release(&ptable.lock);
   return -1;
 }
-
-// IT DOESNT CONSISTENTLY OUTPUT ANYTHING SO ITS ALL BROKEN
