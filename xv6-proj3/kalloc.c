@@ -2,6 +2,7 @@
 // memory for user processes, kernel stacks, page table pages,
 // and pipe buffers. Allocates 4096-byte pages.
 
+
 #include "types.h"
 #include "defs.h"
 #include "param.h"
@@ -116,17 +117,19 @@ freemem(void)
 uint
 get_refcount(uint pa)
 {
-  return 0;
+  return pmem.refcount[pa / PGSIZE];
 }
 
 void
 inc_refcount(uint pa)
 {
+  pmem.refcount[pa / PGSIZE]++;
   return;
 }
 
 void  
 dec_refcount(uint pa)
 {
+  pmem.refcount[pa / PGSIZE]--;
   return;
 }
