@@ -329,13 +329,11 @@ copyuvm(pde_t *pgdir, uint sz)
       panic("copyuvm: page not present");
     pa = PTE_ADDR(*pte);
     flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto bad;
-    memmove(mem, (char*)P2V(pa), PGSIZE);
-    if(mappages(d, (void*)i, PGSIZE, V2P(mem), flags) < 0) {
-      kfree(mem);
-      goto bad;
-    }
+    *pte &= ~PTE_W; // Set parent bit as read only
+    flags &= ~PTE_W; // Set child bit as read only
+    pte_t *child_pte = walkpgdir(d, (void *) i, 1); // Pointer for a single PTE inside of the child page table
+    *child_pte = PA(pa) | flags; // Assign the child PTE as the parent's PTE (high bits) and same flags (low bits)
+    inc_refcount(pa); // Increment the refcount of the physical page.
   }
   return d;
 
