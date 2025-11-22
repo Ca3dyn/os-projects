@@ -318,7 +318,6 @@ copyuvm(pde_t *pgdir, uint sz)
   pde_t *d;
   pte_t *pte;
   uint pa, i, flags;
-  char *mem;
 
   if((d = setupkvm()) == 0)
     return 0;
@@ -332,14 +331,10 @@ copyuvm(pde_t *pgdir, uint sz)
     *pte &= ~PTE_W; // Set parent bit as read only
     flags &= ~PTE_W; // Set child bit as read only
     pte_t *child_pte = walkpgdir(d, (void *) i, 1); // Pointer for a single PTE inside of the child page table
-    *child_pte = PA(pa) | flags; // Assign the child PTE as the parent's PTE (high bits) and same flags (low bits)
+    *child_pte = pa | flags; // Assign the child PTE as the parent's PTE (high bits) and same flags (low bits)
     inc_refcount(pa); // Increment the refcount of the physical page.
   }
   return d;
-
-bad:
-  freevm(d);
-  return 0;
 }
 
 //PAGEBREAK!
@@ -394,26 +389,26 @@ page_fault(void)
 
   // Page table entry that threw the page fault
   pte_t *pte = walkpgdir(myproc()->pgdir, (void *) va, 0);
-  uint old_pa = PTE_ADDR(*pte); // Old physical address of PTE
-  uint old_flags = PTE_FLAGS(*pte); // Old flags of PTE
+  uint pa = PTE_ADDR(*pte); // Old physical address of PTE
+  uint flags = PTE_FLAGS(*pte); // Old flags of PTE
 
   // The write bit is off in our PTE
   if(!(*pte & PTE_W)) {
     // The PTE is NOT shared:
-    if(get_refcount(old_pa) == 1) {
+    if(get_refcount(pa) == 1) {
       *pte |= PTE_W; // Make the PTE writable
     }
 
     // The PTE is shared:
-    if(get_refcount(old_pa) > 1) {
+    if(get_refcount(pa) > 1) {
       char* mem = kalloc();
       if(mem == 0) {
         panic("page failed to allocate");
       }
-      memmove(mem, P2V(old_pa), PGSIZE); // Copy the contents of the shared physical page to the new private physical page
+      memmove(mem, P2V(pa), PGSIZE); // Copy the contents of the shared physical page to the new private physical page
       // V2P() converts the virtual page address of newly created mem to a physical address
-      *pte = PA(V2P(mem)) | (old_flags | PTE_W); // Set the bits of the faulting page to the newly created page's physical address bits and old flag, making sure to set to writable.
-      dec_refcount(old_pa); // Get the physical address bits of our old_pa
+      *pte = V2P(mem) | (flags | PTE_W); // Set the bits of the faulting page to the newly created page's physical address bits and old flag, making sure to set to writable.
+      dec_refcount(pa); // Get the physical address bits of our old_pa
     }
   }
   
